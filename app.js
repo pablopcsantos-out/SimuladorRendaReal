@@ -130,17 +130,19 @@ function renderTable(result) {
 function renderChart(input, result) {
   const svg = $('chart');
   const width = 1000;
-  const height = 420;
+  const axisStep = 100000;
   const pad = { left: 72, right: 28, top: 24, bottom: 48 };
-  const maxY = Math.max(input.principal * 1.05, ...result.strategies.flatMap((s) => s.data)) || 1;
+  const dataMax = Math.max(input.principal * 1.05, ...result.strategies.flatMap((s) => s.data)) || axisStep;
+  const maxY = Math.ceil(dataMax / axisStep) * axisStep;
+  const tickCount = maxY / axisStep;
+  const height = Math.max(420, (tickCount + 1) * 28);
   const xStep = (width - pad.left - pad.right) / (input.years * 12);
   const yFor = (value) => height - pad.bottom - (Math.max(0, value) / maxY) * (height - pad.top - pad.bottom);
 
-  const grid = Array.from({ length: 21 }, (_, index) => {
-    const value = maxY * index / 20;
+  const grid = Array.from({ length: tickCount + 1 }, (_, index) => {
+    const value = axisStep * index;
     const y = yFor(value);
-    const major = index % 2 === 0;
-    return `<line class="grid-line ${major ? 'major' : 'minor'}" x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}"/>${major ? `<text class="axis-text" x="8" y="${y + 5}">${fmtAxisBRL(value)}</text>` : ''}`;
+    return `<line class="grid-line major" x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}"/><text class="axis-text" x="8" y="${y + 5}">${fmtAxisBRL(value)}</text>`;
   }).join('');
 
   const labels = Array.from({ length: Math.min(input.years, 6) + 1 }, (_, index) => {
@@ -153,6 +155,8 @@ function renderChart(input, result) {
     return `<path class="line" d="${path}" stroke="${strategy.color}"/>`;
   }).join('');
 
+  if (typeof svg.setAttribute === 'function') svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  if (svg.style) svg.style.height = `${height}px`;
   svg.innerHTML = `${grid}${labels}${lines}`;
 }
 
