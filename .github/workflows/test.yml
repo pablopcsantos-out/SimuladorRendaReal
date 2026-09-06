@@ -1,0 +1,27 @@
+name: Testes do simulador
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validar sintaxe
+        run: |
+          node --check app.js
+          node --check financial-model.js
+      - name: Testar modelo financeiro
+        run: node financial-model.test.js
+      - name: Testar integração da interface
+        run: node app-smoke.test.js
