@@ -1,3 +1,4 @@
+(() => {
 const MONTHS_PER_YEAR = 12;
 
 function annualToMonthly(rate) {
@@ -124,3 +125,4 @@ const api = { annualToMonthly, monthlyToAnnual, nominalFromReal, applyTaxToNomin
 
 if (typeof module !== 'undefined') module.exports = api;
 if (typeof window !== 'undefined') window.RealFinance = api;
+})();
