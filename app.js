@@ -132,8 +132,8 @@ function renderChart(input, result) {
   const xStep = (width - pad.left - pad.right) / (input.years * 12);
   const yFor = (value) => height - pad.bottom - (Math.max(0, value) / maxY) * (height - pad.top - pad.bottom);
 
-  const grid = Array.from({ length: 6 }, (_, index) => {
-    const value = maxY * index / 5;
+  const grid = Array.from({ length: 11 }, (_, index) => {
+    const value = maxY * index / 10;
     const y = yFor(value);
     return `<line class="grid-line" x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}"/><text class="axis-text" x="8" y="${y + 5}">${fmtBRL(value, true)}</text>`;
   }).join('');
