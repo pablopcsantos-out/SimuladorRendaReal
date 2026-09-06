@@ -28,6 +28,10 @@ const fmtBRL = (value, compact = false) => new Intl.NumberFormat('pt-BR', {
   notation: compact ? 'compact' : 'standard',
   compactDisplay: 'short'
 }).format(Number.isFinite(value) ? value : 0);
+const fmtAxisBRL = (value) => new Intl.NumberFormat('pt-BR', {
+  style: 'currency', currency: 'BRL', maximumFractionDigits: 2,
+  notation: 'compact', compactDisplay: 'short'
+}).format(Number.isFinite(value) ? value : 0);
 
 const fmtPct = (value, digits = 2) => `${value.toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits })}%`;
 const fmtMonths = (months) => months ? `${months} meses (ano ${Math.ceil(months / 12)})` : 'não esgota no horizonte';
@@ -136,7 +140,7 @@ function renderChart(input, result) {
     const value = maxY * index / 20;
     const y = yFor(value);
     const major = index % 2 === 0;
-    return `<line class="grid-line ${major ? 'major' : 'minor'}" x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}"/>${major ? `<text class="axis-text" x="8" y="${y + 5}">${fmtBRL(value, true)}</text>` : ''}`;
+    return `<line class="grid-line ${major ? 'major' : 'minor'}" x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}"/>${major ? `<text class="axis-text" x="8" y="${y + 5}">${fmtAxisBRL(value)}</text>` : ''}`;
   }).join('');
 
   const labels = Array.from({ length: Math.min(input.years, 6) + 1 }, (_, index) => {

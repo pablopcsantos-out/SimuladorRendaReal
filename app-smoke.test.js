@@ -52,6 +52,8 @@ vm.runInNewContext(source, { document, window, Intl, Math, Number });
 // A render inicial deve ter produzido as linhas do SVG.
 assert.match(elements.chart.innerHTML, /<path class="line"/);
 assert.equal((elements.chart.innerHTML.match(/class="grid-line/g) || []).length, 21);
+const axisLabels = [...elements.chart.innerHTML.matchAll(/<text class="axis-text"[^>]*>(.*?)<\/text>/g)].map((match) => match[1]);
+assert.equal(new Set(axisLabels).size, axisLabels.length);
 assert.equal(elements.errorBox.hidden, true);
 
 // Trocar o tipo da taxa não pode destruir os controles dentro do label.
