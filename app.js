@@ -1,3 +1,4 @@
+(() => {
 const $ = (id) => document.getElementById(id);
 const defaults = { principal: 1000000, years: 15, rate: 4, rateType: 'real', inflation: 3, taxRate: 15, fixedWithdrawal: 9900, withdrawalMode: 'real' };
 const finance = window.RealFinance;
@@ -111,3 +112,4 @@ function applyRateType() {
 $('rateType').addEventListener('change', () => { applyRateType(); render(); });
 $('resetBtn').addEventListener('click', () => { Object.entries(defaults).forEach(([key, value]) => { $(key).value = value; }); applyRateType(); render(); });
 applyRateType(); render();
+})();

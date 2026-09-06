@@ -65,7 +65,7 @@ output { min-width: 70px; color: var(--muted); font: .82rem Arial, sans-serif; t
 .dot.income { background: var(--orange); }
 .dot.fixed { background: var(--blue); }
 .chart-wrap { overflow-x: auto; margin-top: 20px; }
-#chart { display: block; width: 100%; min-width: 620px; height: auto; }
+#chart { display: block; width: 100%; min-width: 620px; height: 420px; }
 .grid-line { stroke: #dce3de; stroke-width: 1; }
 .axis-text { fill: #73817f; font: 12px Arial, sans-serif; }
 .line { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
