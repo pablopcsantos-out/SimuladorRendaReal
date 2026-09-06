@@ -51,6 +51,7 @@ vm.runInNewContext(source, { document, window, Intl, Math, Number });
 
 // A render inicial deve ter produzido as linhas do SVG.
 assert.match(elements.chart.innerHTML, /<path class="line"/);
+assert.equal((elements.chart.innerHTML.match(/class="grid-line/g) || []).length, 21);
 assert.equal(elements.errorBox.hidden, true);
 
 // Trocar o tipo da taxa não pode destruir os controles dentro do label.
@@ -86,5 +87,6 @@ assert.equal(elements.fixedWithdrawal.value, '9900');
 assert.equal(elements.withdrawalMode.value, 'real');
 assert.equal(elements.rateLabelText.textContent, 'Retorno real bruto esperado');
 assert.match(elements.chart.innerHTML, /<path class="line"/);
+assert.equal((elements.chart.innerHTML.match(/class="grid-line/g) || []).length, 21);
 
 console.log('app-smoke: gráfico e restauração do cenário passaram');
