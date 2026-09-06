@@ -1,135 +1,113 @@
 const $ = (id) => document.getElementById(id);
-const defaults = { principal: 1000000, years: 15, realRate: 4, inflation: 3, taxRate: 15, fixedWithdrawal: 9900 };
-const fields = Object.keys(defaults);
+const defaults = { principal: 1000000, years: 15, rate: 4, rateType: 'real', inflation: 3, taxRate: 15, fixedWithdrawal: 9900, withdrawalMode: 'real' };
+const { calculateReturns, calculateIncomeSummary, simulateStrategy, validateInputs } = window.RealFinance;
 
-const fmtBRL = (n, compact = false) => new Intl.NumberFormat('pt-BR', {
+const fmtBRL = (value, compact = false) => new Intl.NumberFormat('pt-BR', {
   style: 'currency', currency: 'BRL', maximumFractionDigits: compact ? 0 : 2,
   notation: compact ? 'compact' : 'standard', compactDisplay: 'short'
-}).format(Math.max(0, n));
-const fmtPct = (n) => `${n.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 2})}%`;
+}).format(Math.max(0, value));
+const fmtPct = (value, digits = 2) => `${value.toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits })}%`;
+const fmtMonths = (months) => months ? `${months} meses / ano ${Math.ceil(months / 12)}` : 'não esgota no horizonte';
 
-function values() {
-  return Object.fromEntries(fields.map(k => [k, Number($(k).value)]));
+function readInputs() {
+  return {
+    principal: Number($('principal').value), years: Number($('years').value),
+    rate: Number($('rate').value) / 100, rateType: $('rateType').value,
+    inflation: Number($('inflation').value) / 100, taxRate: Number($('taxRate').value) / 100,
+    fixedWithdrawal: Number($('fixedWithdrawal').value), withdrawalMode: $('withdrawalMode').value
+  };
 }
 
-function financialModel(v) {
-  const realAnnual = v.realRate / 100;
-  const inflationAnnual = v.inflation / 100;
-  const tax = v.taxRate / 100;
-  const nominalAnnual = (1 + realAnnual) * (1 + inflationAnnual) - 1;
-  const monthlyInflation = Math.pow(1 + inflationAnnual, 1 / 12) - 1;
-  const monthlyNominalGross = Math.pow(1 + nominalAnnual, 1 / 12) - 1;
-  const monthlyNominalNet = monthlyNominalGross * (1 - tax);
-  const monthlyRealNet = (1 + monthlyNominalNet) / (1 + monthlyInflation) - 1;
-  const annualRealNet = Math.pow(1 + monthlyRealNet, 12) - 1;
-  return { realAnnual, inflationAnnual, tax, nominalAnnual, monthlyInflation, monthlyNominalGross, monthlyNominalNet, monthlyRealNet, annualRealNet };
-}
-
-function simulate(v) {
-  const m = financialModel(v);
-  const months = v.years * 12;
-  const sustainableWithdrawal = v.principal * m.monthlyRealNet;
-  const incomeWithdrawal = v.principal * m.monthlyNominalNet / (1 + m.monthlyInflation);
-  const fixedWithdrawal = v.fixedWithdrawal;
+function calculateScenario(input) {
+  const errors = validateInputs(input);
+  if (errors.length) return { errors };
+  const returns = calculateReturns(input);
+  const income = calculateIncomeSummary(input.principal, returns);
+  const fixedMode = input.withdrawalMode === 'real' ? 'real' : 'nominal';
   const strategies = [
-    { key: 'sustainable', name: 'Regra real', color: '#207c8d', withdrawal: sustainableWithdrawal, mode: 'constant', data: [v.principal] },
-    { key: 'income', name: 'Vive do rendimento', color: '#b95a00', withdrawal: incomeWithdrawal, mode: 'income', data: [v.principal] },
-    { key: 'fixed', name: 'Retirada fixa', color: '#ec6b61', withdrawal: fixedWithdrawal, mode: 'constant', data: [v.principal] }
-  ];
-
-  for (let month = 1; month <= months; month++) {
-    for (const s of strategies) {
-      const previous = s.data[s.data.length - 1];
-      let next;
-      if (previous <= 0) next = 0;
-      else if (s.mode === 'income') next = previous / (1 + m.monthlyInflation);
-      else next = Math.max(0, previous * (1 + m.monthlyRealNet) - s.withdrawal);
-      s.data.push(next);
-    }
-  }
-  return { m, strategies };
+    { key: 'reference', name: 'Retirada de referência (retorno real)', color: '#136f63', withdrawal: income.monthlyRealEquivalent, mode: 'real' },
+    { key: 'income', name: 'Viver do rendimento nominal', color: '#d05b2d', withdrawal: input.principal * returns.monthlyNominalNet, mode: 'income' },
+    { key: 'fixed', name: input.withdrawalMode === 'real' ? 'Retirada fixa em termos reais' : 'Retirada fixa nominal', color: '#4b5d9a', withdrawal: input.fixedWithdrawal, mode: fixedMode }
+  ].map((strategy) => ({ ...strategy, ...simulateStrategy({ principal: input.principal, years: input.years, returns, withdrawal: strategy.withdrawal, mode: strategy.mode }) }));
+  return { input, returns, income, strategies };
 }
 
-function durationYears(data) {
-  const zero = data.findIndex((x, i) => i > 0 && x <= 0.01);
-  return zero === -1 ? null : zero / 12;
-}
-
-function renderCards(v, result) {
-  const { m, strategies } = result;
-  const sustainable = strategies[0];
-  const income = strategies[1];
+function renderSummary(input, result) {
+  const { returns, income, strategies } = result;
   const fixed = strategies[2];
-  const fixedDuration = durationYears(fixed.data);
   $('summaryCards').innerHTML = `
-    <article class="card teal"><span class="label">Renda real sustentável estimada</span><strong class="value">${fmtBRL(sustainable.withdrawal, true)}/mês</strong><span class="detail">${fmtPct(m.annualRealNet * 100)} a.a. líquido em termos reais no modelo</span></article>
-    <article class="card orange"><span class="label">"Viver do rendimento" no início</span><strong class="value">${fmtBRL(income.withdrawal, true)}/mês</strong><span class="detail">Retira o ganho líquido estimado, mas não preserva automaticamente o poder de compra</span></article>
-    <article class="card coral"><span class="label">Retirada fixa informada</span><strong class="value">${fmtBRL(fixed.withdrawal, true)}/mês</strong><span class="detail">${fixedDuration ? `Patrimônio zera em cerca de ${fixedDuration.toLocaleString('pt-BR',{maximumFractionDigits:1})} anos` : 'Patrimônio não zera dentro do horizonte'}</span></article>`;
-  $('formulaText').innerHTML = `Com juro real bruto de <strong>${fmtPct(v.realRate)}</strong>, inflação de <strong>${fmtPct(v.inflation)}</strong> e IR de <strong>${fmtPct(v.taxRate)}</strong> sobre o ganho nominal, o modelo estima um retorno líquido de <strong>${fmtPct(m.annualRealNet * 100)} ao ano em poder de compra</strong>. Para ${fmtBRL(v.principal, true)}, isso corresponde a aproximadamente <strong>${fmtBRL(sustainable.withdrawal, true)} por mês</strong> como retirada real de referência.`;
+    <article class="metric metric-primary"><span class="metric-kicker">Rendimento nominal líquido</span><strong>${fmtBRL(income.netAnnual / 12, true)}<small>/mês</small></strong><span>${fmtPct(returns.nominalNetAnnual * 100)} a.a. após IR estimado</span></article>
+    <article class="metric"><span class="metric-kicker">Poder de compra ganho</span><strong>${fmtBRL(income.realGain, true)}<small>/ano</small></strong><span>${fmtPct(returns.realNetAnnual * 100)} a.a. real líquido</span></article>
+    <article class="metric metric-accent"><span class="metric-kicker">Retirada informada</span><strong>${fmtBRL(input.fixedWithdrawal, true)}<small>/mês</small></strong><span>${fixed.exhaustedAtMonth ? `Esgota em ${fmtMonths(fixed.exhaustedAtMonth)}` : 'Sobrevive ao horizonte'}</span></article>`;
+  $('formulaText').innerHTML = `O cenário parte de <strong>${input.rateType === 'real' ? 'retorno real bruto' : 'taxa nominal'}</strong> de <strong>${fmtPct(input.rate * 100)}</strong>. O modelo calcula o rendimento nominal, aplica IR de <strong>${fmtPct(input.taxRate * 100, 1)}</strong> sobre esse ganho e só então desconta a inflação de <strong>${fmtPct(input.inflation * 100, 1)}</strong>. A retirada de referência é uma premissa de planejamento, não uma garantia de preservação.`;
 }
 
-function renderTable(v, result) {
-  const { strategies } = result;
-  $('resultsTable').innerHTML = strategies.map((s) => {
-    const finalValue = s.data[s.data.length - 1];
-    const duration = durationYears(s.data);
-    let diagnosis;
-    if (s.key === 'sustainable') diagnosis = 'Retirada alinhada ao retorno real líquido do modelo';
-    if (s.key === 'income') diagnosis = 'O principal nominal pode ficar, mas o poder de compra diminui';
-    if (s.key === 'fixed') diagnosis = duration ? 'A retirada consome o principal no cenário' : 'Ainda não zera no horizonte escolhido';
-    return `<tr><td><strong>${s.name}</strong></td><td>${fmtBRL(s.withdrawal, true)}/mês</td><td>${fmtBRL(finalValue, true)}</td><td>${duration ? `${duration.toLocaleString('pt-BR',{maximumFractionDigits:1})} anos` : `${v.years} anos+`}</td><td class="status">${diagnosis}</td></tr>`;
-  }).join('');
+function renderCalculation(input, result) {
+  const { returns, income } = result;
+  $('calculationDetails').innerHTML = `<div class="calc-grid">
+    <span>Taxa nominal bruta anual</span><strong>${fmtPct(returns.nominalGrossAnnual * 100)}</strong>
+    <span>Rendimento nominal bruto</span><strong>${fmtBRL(income.grossAnnual)}</strong>
+    <span>IR estimado sobre o ganho</span><strong>${fmtBRL(income.taxAnnual)}</strong>
+    <span>Rendimento nominal líquido</span><strong>${fmtBRL(income.netAnnual)}</strong>
+    <span>Patrimônio nominal após 1 ano</span><strong>${fmtBRL(income.nominalFinal)}</strong>
+    <span>Patrimônio em poder de compra inicial</span><strong>${fmtBRL(income.realFinal)}</strong>
+    <span>Taxa real líquida anual</span><strong>${fmtPct(income.realNetAnnual * 100)}</strong>
+    <span>Retirada real mensal equivalente</span><strong>${fmtBRL(income.monthlyRealEquivalent)}</strong>
+  </div><p class="microcopy">Conversões mensais usam equivalência composta: taxa mensal = (1 + taxa anual)^(1/12) - 1. A tributação é uma hipótese simplificada e depende do produto, prazo e legislação.</p>`;
 }
 
-function pathFor(data, width, height, pad, maxY, xStep) {
-  return data.map((value, i) => {
-    const x = pad.left + i * xStep;
-    const y = height - pad.bottom - (value / maxY) * (height - pad.top - pad.bottom);
-    return `${i === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`;
-  }).join(' ');
+function renderTable(result) {
+  $('resultsTable').innerHTML = result.strategies.map((strategy) => `<tr>
+    <td><strong>${strategy.name}</strong></td><td>${fmtBRL(strategy.withdrawal, true)}/mês</td>
+    <td>${fmtBRL(strategy.totalNominalWithdrawn, true)}</td><td>${fmtBRL(strategy.finalNominal, true)}<br><small>${fmtBRL(strategy.finalReal, true)} real</small></td>
+    <td>${strategy.exhaustedAtMonth ? `Esgotado: ${fmtMonths(strategy.exhaustedAtMonth)}` : `${strategy.survivedPercent.toFixed(0)}% do horizonte`}</td>
+  </tr>`).join('');
 }
 
-function renderChart(v, result) {
+function renderChart(input, result) {
   const svg = $('chart');
-  const width = 1000, height = 430, pad = { left: 68, right: 118, top: 24, bottom: 48 };
-  const maxY = Math.max(v.principal * 1.05, ...result.strategies.flatMap(s => s.data)) || 1;
-  const xStep = (width - pad.left - pad.right) / (v.years * 12);
-  const grid = [];
-  for (let i = 0; i <= 5; i++) {
-    const value = maxY * i / 5;
-    const y = height - pad.bottom - (value / maxY) * (height - pad.top - pad.bottom);
-    grid.push(`<line class="grid-line" x1="${pad.left}" y1="${y}" x2="${width-pad.right}" y2="${y}"/><text class="axis-text" x="8" y="${y+5}">${fmtBRL(value,true)}</text>`);
-  }
-  for (let year = 0; year <= v.years; year += Math.max(1, Math.ceil(v.years / 6))) {
-    const x = pad.left + year * 12 * xStep;
-    grid.push(`<text class="axis-text" x="${x}" y="${height-16}" text-anchor="middle">${year === 0 ? 'Hoje' : `Ano ${year}`}</text>`);
-  }
-  const lines = result.strategies.map(s => `<path class="line" d="${pathFor(s.data,width,height,pad,maxY,xStep)}" stroke="${s.color}"/>`).join('');
-  const labels = result.strategies.map((s, idx) => {
-    const final = s.data[s.data.length - 1];
-    const x = width - pad.right + 12;
-    const baseY = height - pad.bottom - (final / maxY) * (height - pad.top - pad.bottom);
-    const y = Math.max(pad.top + 18, Math.min(height - pad.bottom - 5, baseY + (idx === 0 ? -12 : idx === 1 ? 0 : 16)));
-    return `<text class="end-label" x="${x}" y="${y}" fill="${s.color}">${fmtBRL(final,true)}</text>`;
+  const width = 1000, height = 420, pad = { left: 72, right: 28, top: 24, bottom: 48 };
+  const maxY = Math.max(input.principal * 1.05, ...result.strategies.flatMap((s) => s.data)) || 1;
+  const xStep = (width - pad.left - pad.right) / (input.years * 12);
+  const yFor = (value) => height - pad.bottom - value / maxY * (height - pad.top - pad.bottom);
+  const grid = Array.from({ length: 6 }, (_, index) => {
+    const value = maxY * index / 5; const y = yFor(value);
+    return `<line class="grid-line" x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}"/><text class="axis-text" x="8" y="${y + 5}">${fmtBRL(value, true)}</text>`;
   }).join('');
-  svg.innerHTML = `${grid.join('')}${lines}${labels}`;
+  const labels = Array.from({ length: Math.min(input.years, 6) + 1 }, (_, index) => {
+    const year = Math.round(input.years * index / Math.min(input.years, 6));
+    return `<text class="axis-text" x="${pad.left + year * 12 * xStep}" y="${height - 16}" text-anchor="middle">${year === 0 ? 'Hoje' : `Ano ${year}`}</text>`;
+  }).join('');
+  const lines = result.strategies.map((strategy) => {
+    const path = strategy.data.map((value, index) => `${index ? 'L' : 'M'}${(pad.left + index * xStep).toFixed(2)},${yFor(value).toFixed(2)}`).join(' ');
+    return `<path class="line" d="${path}" stroke="${strategy.color}"/>`;
+  }).join('');
+  svg.innerHTML = `${grid}${labels}${lines}`;
 }
 
 function render() {
-  const v = values();
-  const result = simulate(v);
-  renderCards(v, result);
-  renderTable(v, result);
-  renderChart(v, result);
+  const input = readInputs();
+  updateOutputs();
+  const result = calculateScenario(input);
+  $('errorBox').hidden = !result.errors;
+  if (result.errors) { $('errorBox').textContent = result.errors.join(' '); return; }
+  renderSummary(input, result); renderCalculation(input, result); renderTable(result); renderChart(input, result);
 }
 
 function updateOutputs() {
   $('yearsOut').textContent = `${$('years').value} anos`;
-  $('realRateOut').textContent = `${Number($('realRate').value).toLocaleString('pt-BR',{minimumFractionDigits:1})}% a.a.`;
-  $('inflationOut').textContent = `${Number($('inflation').value).toLocaleString('pt-BR',{minimumFractionDigits:1})}% a.a.`;
-  $('taxRateOut').textContent = `${Number($('taxRate').value).toLocaleString('pt-BR',{minimumFractionDigits:1})}%`;
+  $('rateOut').textContent = `${Number($('rate').value).toLocaleString('pt-BR', { minimumFractionDigits: 1 })}% a.a.`;
+  $('inflationOut').textContent = `${Number($('inflation').value).toLocaleString('pt-BR', { minimumFractionDigits: 1 })}% a.a.`;
+  $('taxRateOut').textContent = `${Number($('taxRate').value).toLocaleString('pt-BR', { minimumFractionDigits: 1 })}%`;
 }
 
-fields.forEach(id => $(id).addEventListener('input', () => { updateOutputs(); render(); }));
-$('resetBtn').addEventListener('click', () => { Object.entries(defaults).forEach(([k,v]) => $(k).value = v); updateOutputs(); render(); });
-updateOutputs(); render();
+function applyRateType() {
+  const real = $('rateType').value === 'real';
+  $('rateLabel').textContent = real ? 'Retorno real bruto esperado' : 'Taxa nominal anual';
+  $('rateHelp').textContent = real ? 'Converte para nominal antes do IR' : 'Aplicada diretamente ao rendimento';
+}
+
+['principal', 'years', 'rate', 'inflation', 'taxRate', 'fixedWithdrawal', 'withdrawalMode'].forEach((id) => $(id).addEventListener('input', render));
+$('rateType').addEventListener('change', () => { applyRateType(); render(); });
+$('resetBtn').addEventListener('click', () => { Object.entries(defaults).forEach(([key, value]) => { $(key).value = value; }); applyRateType(); render(); });
+applyRateType(); render();

@@ -8,14 +8,39 @@ Webapp estático, sem dependências e pronto para GitHub Pages, inspirado no est
 
 ## Modelo
 
-O simulador recebe patrimônio inicial, horizonte, juro real bruto, inflação, IR sobre o ganho nominal e uma retirada fixa inicial.
+O usuário pode informar uma taxa nominal ou um retorno real bruto. No segundo caso, o simulador converte primeiro para nominal:
 
-Para cada mês, calcula um retorno nominal compatível com o juro real e a inflação, desconta o IR sobre o ganho nominal e converte o resultado para poder de compra real. Os valores são uma simulação educacional, não uma projeção de mercado.
+`r_nominal = (1 + r_real) * (1 + inflação) - 1`
 
-## Execução local
+Em seguida aplica o IR simplificado sobre o ganho nominal e converte o resultado para termos reais:
 
-Abra `index.html` diretamente no navegador ou sirva a pasta com qualquer servidor HTTP estático.
+`r_real_liquido = (1 + r_nominal_liquido) / (1 + inflação) - 1`
 
-## GitHub Pages
+As evoluções mensais usam equivalência composta, e não divisão simples por 12. A seção “Como o cálculo foi feito” mostra os números do cenário ativo.
 
-O workflow `.github/workflows/deploy-simulador-renda-real.yml` publica o conteúdo da raiz como artefato de GitHub Pages.
+## Estratégias
+
+- **Retirada de referência:** usa o retorno real líquido do cenário como premissa de planejamento. Não é uma garantia de preservação nem uma taxa universalmente segura.
+- **Viver do rendimento nominal:** retira o ganho nominal líquido estimado. O patrimônio nominal pode ficar estável enquanto o poder de compra diminui.
+- **Retirada fixa:** pode ser nominal ou corrigida pela inflação. O total retirado e os patrimônios final nominal e real são exibidos separadamente.
+
+Todas as projeções são determinísticas e usam retorno constante. Elas não representam uma previsão.
+
+## Limitações
+
+O IR é uma hipótese configurável do modelo, não uma regra universal. A tributação real depende do produto financeiro, prazo, regime e legislação. O simulador também não modela volatilidade, sequência de retornos, custos, mudanças de taxa, produtos específicos ou garantias de preservação. Um retorno médio real de 4% não implica uma trajetória anual de 4%, especialmente durante retiradas.
+
+## Execução e testes
+
+Abra `index.html` diretamente ou sirva a pasta com qualquer servidor HTTP estático. O projeto não possui backend nem dependências externas e continua compatível com GitHub Pages.
+
+Para executar os testes do motor matemático:
+
+```bash
+node financial-model.test.js
+```
+
+O workflow em `.github/workflows/deploy-simulador-renda-real.yml` publica a raiz como artefato do GitHub Pages.
+
+O workflow em `.github/workflows/deploy-simulador-renda-real.yml` publica a raiz como artefato do GitHub Pages.
+

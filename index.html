@@ -11,11 +11,14 @@
   <main class="app-shell">
     <header class="hero">
       <div>
-        <p class="eyebrow">SIMULADOR INTERATIVO</p>
-        <h1>Quanto você pode gastar sem se enganar com a renda?</h1>
-        <p class="lead">Compare retirada fixa, retirada de todo o rendimento e uma regra de saque em termos reais. O objetivo é separar <strong>renda nominal</strong> de <strong>poder de compra</strong>.</p>
+        <p class="eyebrow">RENDA REAL / MODELO AUDITÁVEL</p>
+        <h1>Quanto R$ 1 milhão rende de verdade?</h1>
+        <p class="lead">Separe rendimento nominal, imposto, poder de compra e retirada de planejamento em um cenário determinístico claro.</p>
       </div>
-      <div class="hero-badge">Renda ≠ sustentabilidade</div>
+      <div>
+        <div class="hero-badge">Renda ≠ sustentabilidade</div>
+        <a class="hero-link" href="interpretacao.html">Como interpretar os resultados →</a>
+      </div>
     </header>
 
     <section class="layout">
@@ -31,8 +34,10 @@
           <div class="range-row"><input id="years" type="range" min="5" max="50" step="1" value="15" /><output id="yearsOut">15 anos</output></div>
         </label>
 
-        <label>Juro real bruto esperado
-          <div class="range-row"><input id="realRate" type="range" min="0" max="10" step="0.1" value="4" /><output id="realRateOut">4,0% a.a.</output></div>
+        <label id="rateLabel" for="rate">Retorno real bruto esperado</label>
+          <div class="select-row"><select id="rateType" aria-label="Tipo da taxa"><option value="real">Taxa real bruta</option><option value="nominal">Taxa nominal</option></select></div>
+          <div class="range-row"><input id="rate" type="range" min="0" max="20" step="0.1" value="4" /><output id="rateOut">4,0% a.a.</output></div>
+          <small id="rateHelp" class="hint">Converte para nominal antes do IR</small>
         </label>
 
         <label>Inflação anual
@@ -47,10 +52,15 @@
           <div class="input-prefix"><span>R$</span><input id="fixedWithdrawal" type="number" min="0" step="100" value="9900" /></div>
         </label>
 
+        <label for="withdrawalMode">Tratamento da retirada fixa
+          <select id="withdrawalMode"><option value="real">Corrigida pela inflação (valor real)</option><option value="nominal">Nominal fixa</option></select>
+        </label>
+
         <button id="resetBtn" class="secondary">Restaurar cenário do estudo</button>
       </aside>
 
       <div class="content">
+        <div id="errorBox" class="error" role="alert" hidden></div>
         <section class="cards" id="summaryCards"></section>
 
         <section class="panel explanation">
@@ -59,13 +69,18 @@
           <p class="muted">O simulador usa valores em poder de compra de hoje para facilitar a comparação. A retirada da regra real é corrigida pela inflação e o imposto incide sobre o ganho nominal estimado.</p>
         </section>
 
+        <details class="panel calculation" open>
+          <summary>Como o cálculo foi feito</summary>
+          <div id="calculationDetails"></div>
+        </details>
+
         <section class="panel chart-panel">
           <div class="chart-head">
-            <div><h2>Patrimônio em poder de compra</h2><p class="muted">Base 100 = patrimônio inicial.</p></div>
+            <div><h2>Trajetória do patrimônio</h2><p class="muted">Valores em poder de compra de hoje. Cenário hipotético de retorno constante.</p></div>
             <div class="legend">
-              <span><i class="dot sustainable"></i>Regra real</span>
+              <span><i class="dot sustainable"></i>Referência real</span>
               <span><i class="dot income"></i>Vive do rendimento</span>
-              <span><i class="dot fixed"></i>Retirada fixa</span>
+              <span><i class="dot fixed"></i>Retirada informada</span>
             </div>
           </div>
           <div class="chart-wrap"><svg id="chart" viewBox="0 0 1000 430" role="img" aria-label="Evolução comparativa do patrimônio"></svg></div>
@@ -74,7 +89,7 @@
         <section class="panel table-panel">
           <h2>Comparação das estratégias</h2>
           <div class="table-wrap"><table>
-            <thead><tr><th>Estratégia</th><th>Saque inicial</th><th>Patrimônio final real</th><th>Duração</th><th>Diagnóstico</th></tr></thead>
+            <thead><tr><th>Estratégia</th><th>Retirada inicial</th><th>Total retirado</th><th>Patrimônio final</th><th>Sobrevivência</th></tr></thead>
             <tbody id="resultsTable"></tbody>
           </table></div>
         </section>
@@ -82,9 +97,9 @@
         <section class="panel assumptions">
           <h2>Como interpretar</h2>
           <ul>
-            <li><strong>Regra real:</strong> tenta retirar apenas uma taxa real sustentável, já descontando o efeito estimado do IR sobre o ganho nominal.</li>
+            <li><strong>Retirada de referência:</strong> usa o retorno real líquido deste modelo. É uma premissa de planejamento, não uma garantia universal.</li>
             <li><strong>Vive do rendimento:</strong> retira todo o ganho líquido estimado. Como parte do ganho nominal apenas recompõe inflação, o patrimônio perde poder de compra.</li>
-            <li><strong>Retirada fixa:</strong> começa com o valor informado e o corrige pela inflação. É a estratégia que pode consumir o principal mais rapidamente.</li>
+            <li><strong>Retirada fixa:</strong> pode ser nominal ou corrigida pela inflação. “Não tocar no principal nominal” não preserva necessariamente o poder de compra.</li>
           </ul>
           <p class="warning">Este é um simulador educacional: não prevê retornos futuros, risco de mercado, taxas, produtos específicos ou mudanças tributárias.</p>
         </section>
@@ -92,6 +107,7 @@
     </section>
   </main>
   <footer>Base conceitual: comparação entre juros reais, inflação, imposto sobre ganho nominal e sustentabilidade do patrimônio.</footer>
+  <script src="financial-model.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
