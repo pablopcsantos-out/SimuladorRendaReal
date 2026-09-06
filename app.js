@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const defaults = { principal: 1000000, years: 15, rate: 4, rateType: 'real', inflation: 3, taxRate: 15, fixedWithdrawal: 9900, withdrawalMode: 'real' };
-const { calculateReturns, calculateIncomeSummary, simulateStrategy, validateInputs } = window.RealFinance;
+const finance = window.RealFinance;
 
 const fmtBRL = (value, compact = false) => new Intl.NumberFormat('pt-BR', {
   style: 'currency', currency: 'BRL', maximumFractionDigits: compact ? 0 : 2,
@@ -19,16 +19,16 @@ function readInputs() {
 }
 
 function calculateScenario(input) {
-  const errors = validateInputs(input);
+  const errors = finance.validateInputs(input);
   if (errors.length) return { errors };
-  const returns = calculateReturns(input);
-  const income = calculateIncomeSummary(input.principal, returns);
+  const returns = finance.calculateReturns(input);
+  const income = finance.calculateIncomeSummary(input.principal, returns);
   const fixedMode = input.withdrawalMode === 'real' ? 'real' : 'nominal';
   const strategies = [
     { key: 'reference', name: 'Retirada de referência (retorno real)', color: '#136f63', withdrawal: income.monthlyRealEquivalent, mode: 'real' },
     { key: 'income', name: 'Viver do rendimento nominal', color: '#d05b2d', withdrawal: input.principal * returns.monthlyNominalNet, mode: 'income' },
     { key: 'fixed', name: input.withdrawalMode === 'real' ? 'Retirada fixa em termos reais' : 'Retirada fixa nominal', color: '#4b5d9a', withdrawal: input.fixedWithdrawal, mode: fixedMode }
-  ].map((strategy) => ({ ...strategy, ...simulateStrategy({ principal: input.principal, years: input.years, returns, withdrawal: strategy.withdrawal, mode: strategy.mode }) }));
+  ].map((strategy) => ({ ...strategy, ...finance.simulateStrategy({ principal: input.principal, years: input.years, returns, withdrawal: strategy.withdrawal, mode: strategy.mode }) }));
   return { input, returns, income, strategies };
 }
 
